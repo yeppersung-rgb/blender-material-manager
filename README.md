@@ -18,7 +18,7 @@ A powerful, intuitive Material Manager for Blender, inspired by Cinema 4D. This 
 
 \## Installation
 
-1\. Download the `blender-material-manager-main.zip` release.
+1. Download the latest .zip release from the right sidebar.
 
 2\. In Blender, go to `Edit` > `Preferences` > `Add-ons`.
 
