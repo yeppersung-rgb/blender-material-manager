@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+id = "yepper_mat_manager"
+version = "2.0.4"
+name = "Material Manager"
+tagline = "Smart PBR setup and efficient material manager."
+description = "Ultimate material manager with smart PBR setup, global replace, and deep purge."
+maintainer = "Yepper_sung"
+type = "add-on"
+license = [
+  "SPDX-License-Identifier: GPL-2.0-or-later"
+]
+buildinfo = false
+tags = ["Material"]
+blender_version_min = "3.0.0"
