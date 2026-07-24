@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Material Manager",
     "author": "Yepper_sung",
-    "version": (2, 0, 4),
+    "version": (2, 1, 0), # 更新了版本号
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > MatManager",
     "description": "Ultimate material manager with smart PBR setup, global replace, and deep purge.",
@@ -10,6 +10,7 @@ bl_info = {
 
 import bpy
 import os
+import re
 from bpy_extras.io_utils import ImportHelper
 
 # ==========================================
@@ -41,6 +42,64 @@ class MATERIAL_OT_select_assigned(bpy.types.Operator):
 
 
 # ==========================================
+# [新增] 操作符：一键清空选中模型的所有材质
+# ==========================================
+class MATERIAL_OT_remove_all_materials(bpy.types.Operator):
+    bl_idname = "material.remove_all_materials"
+    bl_label = "Remove All Materials"
+    bl_description = "Clear all material slots from selected objects"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        selected_objs = context.selected_objects
+        if not selected_objs:
+            self.report({'WARNING'}, "Please select at least one object!")
+            return {'CANCELLED'}
+        
+        count = 0
+        for obj in selected_objs:
+            # 确保对象具有材质数据属性 (排除空物体、摄像机等)
+            if hasattr(obj.data, "materials"):
+                obj.data.materials.clear()
+                count += 1
+                
+        self.report({'INFO'}, f"Cleared materials from {count} object(s).")
+        return {'FINISHED'}
+
+
+# ==========================================
+# [新增] 操作符：将目标材质赋予选中模型
+# ==========================================
+class MATERIAL_OT_apply_target_material(bpy.types.Operator):
+    bl_idname = "material.apply_target_material"
+    bl_label = "Apply Target Material"
+    bl_description = "Apply the Target Material to all selected objects (replaces existing)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        target_mat = context.scene.my_mat_manager_target
+        if not target_mat:
+            self.report({'WARNING'}, "Please select a Target Material first!")
+            return {'CANCELLED'}
+            
+        selected_objs = context.selected_objects
+        if not selected_objs:
+            self.report({'WARNING'}, "Please select at least one object!")
+            return {'CANCELLED'}
+            
+        count = 0
+        for obj in selected_objs:
+            if hasattr(obj.data, "materials"):
+                # 先清空原有材质，然后追加新材质
+                obj.data.materials.clear()
+                obj.data.materials.append(target_mat)
+                count += 1
+                
+        self.report({'INFO'}, f"Applied '{target_mat.name}' to {count} object(s).")
+        return {'FINISHED'}
+
+
+# ==========================================
 # 2. 操作符：全局材质替换
 # ==========================================
 class MATERIAL_OT_replace_global(bpy.types.Operator):
@@ -68,13 +127,8 @@ class MATERIAL_OT_replace_global(bpy.types.Operator):
         return {'FINISHED'}
 
 
-import bpy
-import os
-import re
-from bpy_extras.io_utils import ImportHelper
-
 # ==========================================
-# 3. 操作符：智能 PBR 自动连线 (终极后缀匹配版 - 已修复子字符串冲突)
+# 3. 操作符：智能 PBR 自动连线 (终极后缀匹配版)
 # ==========================================
 class MATERIAL_OT_auto_pbr_setup(bpy.types.Operator, ImportHelper):
     bl_idname = "material.auto_pbr_setup"
@@ -190,11 +244,7 @@ class MATERIAL_OT_auto_pbr_setup(bpy.types.Operator, ImportHelper):
                 for kw in kw_list:
                     idx = clean_name.rfind(kw)
                     if idx > -1:
-                        # 1. 计算匹配词的结束位置
                         end_idx = idx + len(kw)
-                        
-                        # 2. 优先选择结束位置更靠后的关键词
-                        # 3. 如果结束位置一样，选择字符串更长的那个（解决 scatteringcolor 包含 color 的问题）
                         if end_idx > highest_end_idx or (end_idx == highest_end_idx and len(kw) > longest_kw_len):
                             highest_end_idx = end_idx
                             longest_kw_len = len(kw)
@@ -272,7 +322,7 @@ class MATERIAL_OT_auto_pbr_setup(bpy.types.Operator, ImportHelper):
                 
             y_offset -= 250 
 
-      # --- 安全处理置换模式 (终极暴力兼容版) ---
+        # --- 安全处理置换模式 (终极暴力兼容版) ---
         if has_displacement:
             # 1. 尝试 Blender 4.2+ 的全局置换设置
             try:
@@ -298,6 +348,7 @@ class MATERIAL_OT_auto_pbr_setup(bpy.types.Operator, ImportHelper):
                 
         self.report({'INFO'}, f"Successfully linked {len(files_to_load)} maps to '{mat.name}'!")
         return {'FINISHED'}
+
 
 # ==========================================
 # 4. 操作符：精准清理未使用材质 (白名单机制)
@@ -381,11 +432,16 @@ class MATERIAL_PT_manager_panel(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
 
-        # 模块 1：选择与分配
+        # 模块 1：选择与分配 (更新了布局)
         box1 = layout.box()
-        box1.label(text="1. Select and Assign", icon='MATERIAL')
+        box1.label(text="1. Select & Assign", icon='MATERIAL')
         box1.prop(scene, "my_mat_manager_target", text="Target")
-        box1.operator(MATERIAL_OT_select_assigned.bl_idname, text="Select Assigned", icon='RESTRICT_SELECT_OFF')
+        
+        row = box1.row(align=True)
+        row.operator(MATERIAL_OT_apply_target_material.bl_idname, text="Apply to Selected", icon='ADD')
+        row.operator(MATERIAL_OT_select_assigned.bl_idname, text="Select Assigned", icon='RESTRICT_SELECT_OFF')
+        
+        box1.operator(MATERIAL_OT_remove_all_materials.bl_idname, text="Remove All Materials", icon='X')
 
         layout.separator()
 
@@ -419,6 +475,8 @@ class MATERIAL_PT_manager_panel(bpy.types.Panel):
 # ==========================================
 classes = (
     MATERIAL_OT_select_assigned,
+    MATERIAL_OT_remove_all_materials,    # 新增类注册
+    MATERIAL_OT_apply_target_material,   # 新增类注册
     MATERIAL_OT_replace_global,
     MATERIAL_OT_auto_pbr_setup,
     MATERIAL_OT_purge_materials,
