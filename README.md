@@ -34,3 +34,5 @@ A powerful, intuitive Material Manager for Blender, inspired by Cinema 4D. This 
 
 Created by \*\*Yepper\_sung\*\*.
 
+if you need to contact me 
+Wechat：Yepper_sung
